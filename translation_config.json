@@ -2,5 +2,5 @@
   "ollama_url": "http://localhost:11434",
   "ollama_model": "SimonPu/Hunyuan-MT-Chimera-7B:Q8",
   "default_target_language": "zh",
-  "prompt_template": "Translate the following text blocks to {{TARGET_LANGUAGE}}.\n\nIMPORTANT INSTRUCTIONS:\n- Return ONLY a valid JSON array of translated strings\n- The array must have exactly the same number of elements as the input\n- Preserve paragraph structure and formatting\n- Do not add explanations or notes\n\nInput blocks:\n{{BLOCKS_JSON}}\n\nOutput (JSON array of translated strings):"
+  "prompt_template": "Translate the following text blocks into natural, idiomatic Chinese text.\n\nIMPORTANT INSTRUCTIONS:\n- Return ONLY a valid JSON array of translated strings\n- The array must have exactly the same number of elements as the input\n- Preserve paragraph structure and formatting\n- Do not add explanations or notes\n\nInput blocks:\n{{BLOCKS_JSON}}\n\nOutput (JSON array of translated strings):"
 }

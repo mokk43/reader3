@@ -39,106 +39,40 @@
         /* Translation Controls */
         .translation-controls {
             margin-top: 20px;
-            padding: 15px;
+            padding: 12px;
             background: #fff;
             border-radius: 8px;
             border: 1px solid #dee2e6;
             font-family: -apple-system, sans-serif;
-            font-size: 0.85em;
+            font-size: 0.9em;
         }
         .translation-controls label {
             display: block;
-            margin-bottom: 5px;
+            margin-bottom: 6px;
             font-weight: 600;
             color: #495057;
         }
-        .translation-controls select,
-        .translation-controls input[type="text"] {
+        .translation-controls select {
             width: 100%;
-            padding: 8px;
+            padding: 10px 12px;
             border: 1px solid #ced4da;
-            border-radius: 4px;
-            font-size: 0.9em;
-            margin-bottom: 12px;
+            border-radius: 6px;
+            font-size: 0.95em;
             box-sizing: border-box;
         }
-        .translation-controls select:focus,
-        .translation-controls input:focus {
+        .translation-controls select:focus {
             outline: none;
             border-color: #80bdff;
             box-shadow: 0 0 0 2px rgba(0,123,255,.15);
         }
         .translation-status {
-            padding: 8px 12px;
-            border-radius: 4px;
+            margin-top: 10px;
             font-size: 0.85em;
-            margin-top: 10px;
-        }
-        .translation-status.loading { background: #fff3cd; color: #856404; }
-        .translation-status.error { background: #f8d7da; color: #721c24; }
-        .translation-status.success { background: #d4edda; color: #155724; }
-        .translation-status.idle { background: #e9ecef; color: #495057; }
-
-        /* Config toggle button */
-        .config-toggle {
-            margin-top: 10px;
-            padding: 6px 12px;
-            background: transparent;
-            border: 1px solid #ced4da;
-            border-radius: 4px;
-            cursor: pointer;
-            font-size: 0.8em;
             color: #6c757d;
-            width: 100%;
         }
-        .config-toggle:hover { background: #f8f9fa; }
-
-        /* Config panel */
-        .config-panel {
-            margin-top: 12px;
-            padding: 12px;
-            background: #f8f9fa;
-            border-radius: 4px;
-            display: none;
-        }
-        .config-panel.show { display: block; }
-        .config-panel textarea {
-            width: 100%;
-            min-height: 120px;
-            padding: 8px;
-            border: 1px solid #ced4da;
-            border-radius: 4px;
-            font-family: monospace;
-            font-size: 0.8em;
-            resize: vertical;
-            box-sizing: border-box;
-        }
-        .config-panel input[type="text"] {
-            width: 100%;
-            padding: 6px 8px;
-            margin-bottom: 8px;
-            border: 1px solid #ced4da;
-            border-radius: 4px;
-            font-size: 0.85em;
-            box-sizing: border-box;
-        }
-        .config-panel .config-row {
-            margin-bottom: 10px;
-        }
-        .config-panel .config-row label {
-            font-size: 0.8em;
-            margin-bottom: 3px;
-        }
-        .save-config-btn {
-            padding: 8px 16px;
-            background: #28a745;
-            color: white;
-            border: none;
-            border-radius: 4px;
-            cursor: pointer;
-            font-size: 0.85em;
-        }
-        .save-config-btn:hover { background: #218838; }
+        .translation-status.loading { color: #856404; }
+        .translation-status.error { color: #721c24; }
+        .translation-status.success { color: #155724; }
 
         /* Translation blocks styling */
         .translated-block {
@@ -170,35 +104,13 @@
 
         <!-- Translation Controls -->
         <div class="translation-controls">
-            <label for="tmode">Translation Mode</label>
-            <select id="tmode">
-                <option value="none">None (Original)</option>
-                <option value="bilingual">Bilingual</option>
-                <option value="translated">Translated Only</option>
+            <label for="translation-mode">翻译显示</label>
+            <select id="translation-mode">
+                <option value="original">原文</option>
+                <option value="translated">中文</option>
+                <option value="bilingual">双语</option>
             </select>
-
-            <label for="tlang">Target Language</label>
-            <input type="text" id="tlang" placeholder="e.g., English, Spanish, 日本語">
-
-            <div id="translation-status" class="translation-status idle">Ready</div>
-
-            <button class="config-toggle" onclick="toggleConfig()">⚙️ Translation Settings</button>
-
-            <div id="config-panel" class="config-panel">
-                <div class="config-row">
-                    <label>Ollama URL</label>
-                    <input type="text" id="ollama-url" placeholder="http://127.0.0.1:11434">
-                </div>
-                <div class="config-row">
-                    <label>Model</label>
-                    <input type="text" id="ollama-model" placeholder="llama3.2">
-                </div>
-                <div class="config-row">
-                    <label>Prompt Template</label>
-                    <textarea id="prompt-template" placeholder="Translation prompt..."></textarea>
-                </div>
-                <button class="save-config-btn" onclick="saveConfig()">Save Settings</button>
-            </div>
+            <div id="translation-status" class="translation-status idle">准备就绪</div>
         </div>
 
         <!-- Recursive Macro for TOC -->
@@ -267,90 +179,47 @@
         let currentTranslations = [];
         let eventSource = null;
         let isTranslating = false;
+        let targetLanguage = 'zh';
 
         // --- DOM Elements ---
-        const tmodeSelect = document.getElementById('tmode');
-        const tlangInput = document.getElementById('tlang');
+        const tmodeSelect = document.getElementById('translation-mode');
         const statusDiv = document.getElementById('translation-status');
         const bookContent = document.getElementById('book-content');
 
         // --- Initialization ---
-        function init() {
-            // Load saved settings from localStorage
-            const savedMode = localStorage.getItem('reader3_tmode') || 'none';
-            const savedLang = localStorage.getItem('reader3_tlang') || '';
-            
-            tmodeSelect.value = savedMode;
-            tlangInput.value = savedLang;
+        async function init() {
+            // Load saved mode from localStorage
+            const urlParams = new URLSearchParams(window.location.search);
+            const urlMode = urlParams.get('mode');
+            const savedMode = urlMode || localStorage.getItem('reader3_tmode') || 'original';
 
-            // Load config for settings panel
-            loadConfig();
+            try {
+                await loadConfig();
+            } catch (e) {
+                console.error('Failed to load translation config, using defaults.', e);
+            }
+
+            tmodeSelect.value = savedMode;
 
             // Apply initial mode
             applyMode(savedMode, false);
 
-            // If mode is not 'none', try to load translations
-            if (savedMode !== 'none' && savedLang) {
+            // If mode is not 'original', try to load translations
+            if (savedMode !== 'original') {
                 checkAndLoadTranslations();
             }
 
             // Event listeners
             tmodeSelect.addEventListener('change', onModeChange);
-            tlangInput.addEventListener('change', onLangChange);
 
             // Update nav links to preserve query params
             updateNavLinks();
         }
 
-        // --- Config Panel ---
-        function toggleConfig() {
-            const panel = document.getElementById('config-panel');
-            panel.classList.toggle('show');
-        }
-
         async function loadConfig() {
-            try {
-                const resp = await fetch('/api/translation/config');
-                const config = await resp.json();
-                
-                document.getElementById('ollama-url').value = config.ollama_url || '';
-                document.getElementById('ollama-model').value = config.ollama_model || '';
-                document.getElementById('prompt-template').value = config.prompt_template || '';
-                
-                // Set default language if not already set
-                if (!tlangInput.value && config.default_target_language) {
-                    tlangInput.value = config.default_target_language;
-                    localStorage.setItem('reader3_tlang', config.default_target_language);
-                }
-            } catch (e) {
-                console.error('Failed to load config:', e);
-            }
-        }
-
-        async function saveConfig() {
-            const config = {
-                ollama_url: document.getElementById('ollama-url').value,
-                ollama_model: document.getElementById('ollama-model').value,
-                prompt_template: document.getElementById('prompt-template').value,
-                default_target_language: tlangInput.value
-            };
-
-            try {
-                const resp = await fetch('/api/translation/config', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(config)
-                });
-                
-                if (resp.ok) {
-                    setStatus('Settings saved!', 'success');
-                    setTimeout(() => setStatus('Ready', 'idle'), 2000);
-                } else {
-                    setStatus('Failed to save settings', 'error');
-                }
-            } catch (e) {
-                setStatus('Error saving settings: ' + e.message, 'error');
-            }
+            const resp = await fetch('/api/translation/config');
+            const config = await resp.json();
+            targetLanguage = config.default_target_language || 'zh';
         }
 
         // --- Translation Logic ---
@@ -362,33 +231,14 @@
         function onModeChange() {
             const mode = tmodeSelect.value;
             localStorage.setItem('reader3_tmode', mode);
-            
+
             applyMode(mode, true);
-            
-            if (mode !== 'none') {
-                const lang = tlangInput.value.trim();
-                if (!lang) {
-                    setStatus('Please enter a target language', 'error');
-                    return;
-                }
+
+            if (mode !== 'original') {
                 checkAndLoadTranslations();
             } else {
                 clearTranslations();
-                setStatus('Ready', 'idle');
-            }
-
-            updateNavLinks();
-        }
-
-        function onLangChange() {
-            const lang = tlangInput.value.trim();
-            localStorage.setItem('reader3_tlang', lang);
-            
-            // If in translation mode, reload translations for new language
-            if (tmodeSelect.value !== 'none' && lang) {
-                currentTranslations = [];
-                clearTranslations();
-                checkAndLoadTranslations();
+                setStatus('准备就绪', 'idle');
             }
 
             updateNavLinks();
@@ -396,7 +246,7 @@
 
         function applyMode(mode, animate) {
             document.body.classList.remove('translation-mode-translated', 'translation-mode-bilingual');
-            
+
             if (mode === 'translated') {
                 document.body.classList.add('translation-mode-translated');
             } else if (mode === 'bilingual') {
@@ -405,8 +255,7 @@
         }
 
         async function checkAndLoadTranslations() {
-            const lang = tlangInput.value.trim();
-            if (!lang) return;
+            const lang = targetLanguage;
 
             // Don't start if already translating
             if (isTranslating) return;
@@ -612,10 +461,7 @@
         function buildQueryString() {
             const params = new URLSearchParams();
             const mode = tmodeSelect.value;
-            const lang = tlangInput.value.trim();
-            
-            if (mode !== 'none') params.set('tmode', mode);
-            if (lang) params.set('tlang', lang);
+            if (mode !== 'original') params.set('mode', mode);
             
             const str = params.toString();
             return str ? '?' + str : '';
