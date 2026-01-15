@@ -27,6 +27,20 @@ Starts the FastAPI server at `http://localhost:8123`. The server:
 - Shows a library view at `/`
 - Provides reader interface at `/read/{book_id}/{chapter_index}`
 
+### Translating an EPUB (CLI)
+```bash
+uv run translate_epub.py <epub_file> --mode translation-only --backend ollama
+```
+Creates a new EPUB next to the original with `-translated` suffix. The CLI:
+- Translates paragraph blocks one by one (no concurrency)
+- Preserves inline markup/links and avoids container duplication
+- Translates TOC titles (bilingual shows `Original / Translation`)
+
+Config defaults come from `translation_config.json`, with `.env` overrides:
+- Ollama: `OLLAMA_URL`, `OLLAMA_MODEL`, `OLLAMA_PROMPT`, `OLLAMA_TIMEOUT`
+- OpenAI: `OPENAI_API_KEY`, `OPENAI_BASE_URL`, `OPENAI_MODEL`, `OPENAI_PROMPT`, `OPENAI_TEMPERATURE`, `OPENAI_TIMEOUT`
+- Common: `TARGET_LANGUAGE`, `MAX_BATCH_CHARS`
+
 ### Python environment
 Python version is locked to 3.10 (see `.python-version`). The project uses [uv](https://docs.astral.sh/uv/) for dependency management. All dependencies are defined in `pyproject.toml`.
 

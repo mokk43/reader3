@@ -22,6 +22,33 @@ uv run server.py
 
 And visit [localhost:8123](http://localhost:8123/) to see your current Library. You can easily add more books, or delete them from your library by deleting the folder. It's not supposed to be complicated or complex.
 
+## EPUB Translation CLI
+
+Translate a full EPUB into a new `-translated.epub` file using either Ollama or OpenAI.
+
+```bash
+uv run translate_epub.py /path/to/book.epub --mode translation-only --backend ollama
+```
+
+Output: `/path/to/book-translated.epub`
+
+### Modes
+
+- `translation-only`: replaces paragraph text with translations
+- `bilingual`: keeps original text and inserts translated paragraphs below
+
+### Configuration
+
+Defaults come from `translation_config.json`. `.env` overrides those defaults.
+
+- Ollama: `OLLAMA_URL`, `OLLAMA_MODEL`, `OLLAMA_PROMPT`, `OLLAMA_TIMEOUT`
+- OpenAI: `OPENAI_API_KEY`, `OPENAI_BASE_URL`, `OPENAI_MODEL`, `OPENAI_PROMPT`, `OPENAI_TEMPERATURE`, `OPENAI_TIMEOUT`
+- Common: `TARGET_LANGUAGE`, `MAX_BATCH_CHARS`
+
+Notes:
+- Translation is one paragraph per request, sequential (no concurrency).
+- TOC titles are translated and, in bilingual mode, shown as `Original / Translation`.
+
 ## Chapter Translation (via Ollama)
 
 reader3 supports chapter-by-chapter translation using [Ollama](https://ollama.ai). Translations are cached to disk, so they only need to be generated once per chapter.
