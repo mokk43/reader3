@@ -49,6 +49,11 @@ class TranslationConfigUpdate(BaseModel):
 class TranslationRequest(BaseModel):
     tlang: str
 
+
+class SingleTranslationRequest(BaseModel):
+    tlang: str
+    index: int
+
 @lru_cache(maxsize=10)
 def load_book_cached(folder_name: str) -> Optional[Book]:
     """
@@ -169,7 +174,7 @@ async def update_translation_config(update: TranslationConfigUpdate):
 async def get_chapter_translation(book_id: str, chapter_index: int, tlang: str = None):
     """
     Get translation for a chapter.
-    Returns: {status: missing|ready|error|translating, translations?: [...]}
+    Returns: {status: missing|ready|partial|error, translations?: [...]}
     """
     book = load_book_cached(book_id)
     if not book:
@@ -183,17 +188,6 @@ async def get_chapter_translation(book_id: str, chapter_index: int, tlang: str =
         tlang = config.get("default_target_language", "en")
     
     model = config.get("ollama_model", "llama3.2")
-    job_key = (book_id, chapter_index, tlang, model)
-    
-    # Check if job is in progress
-    with _translation_lock:
-        job_status = _translation_jobs.get(job_key)
-    
-    if job_status == "translating":
-        return JSONResponse({"status": "translating"})
-    elif job_status and job_status.startswith("error:"):
-        error_msg = job_status[6:]
-        return JSONResponse({"status": "error", "message": error_msg})
     
     # Check cache
     cached = load_cached_translation(book_id, chapter_index, tlang, model)
@@ -204,10 +198,21 @@ async def get_chapter_translation(book_id: str, chapter_index: int, tlang: str =
         current_hash = compute_source_hash(blocks)
         
         if cached.get("source_hash") == current_hash:
-            return JSONResponse({
-                "status": "ready",
-                "translations": cached["translations"]
-            })
+            translations = cached.get("translations", [])
+            # Check if partial (has null entries)
+            total_blocks = len(blocks)
+            translated_count = sum(1 for t in translations if t is not None)
+            
+            if translated_count >= total_blocks:
+                return JSONResponse({
+                    "status": "ready",
+                    "translations": translations
+                })
+            else:
+                return JSONResponse({
+                    "status": "partial",
+                    "translations": translations
+                })
     
     return JSONResponse({"status": "missing"})
 
@@ -222,6 +227,71 @@ async def _translate_single_async(text: str, config: dict, target_language: str)
         config, 
         target_language
     )
+
+
+@app.post("/api/books/{book_id}/chapters/{chapter_index}/translation/single")
+async def translate_single_paragraph(book_id: str, chapter_index: int, req: SingleTranslationRequest):
+    """
+    Translate a single paragraph by index and persist to cache immediately.
+    Returns: {status: ok|cached|error, translation?: str}
+    """
+    book = load_book_cached(book_id)
+    if not book:
+        raise HTTPException(status_code=404, detail="Book not found")
+    
+    if chapter_index < 0 or chapter_index >= len(book.spine):
+        raise HTTPException(status_code=404, detail="Chapter not found")
+    
+    config = load_translation_config()
+    tlang = req.tlang or config.get("default_target_language", "zh")
+    model = config.get("ollama_model", "llama3.2")
+    index = req.index
+    
+    chapter_html = book.spine[chapter_index].content
+    blocks = segment_html_to_blocks(chapter_html)
+    
+    if index < 0 or index >= len(blocks):
+        raise HTTPException(status_code=400, detail="Invalid paragraph index")
+    
+    source_hash = compute_source_hash(blocks)
+    
+    # Load existing cache (may be partial)
+    cached = load_cached_translation(book_id, chapter_index, tlang, model)
+    translations = []
+    
+    if cached and cached.get("source_hash") == source_hash:
+        translations = cached.get("translations", [])
+        # Ensure list is long enough
+        while len(translations) < len(blocks):
+            translations.append(None)
+        
+        # If already translated, return cached
+        if translations[index] is not None:
+            return JSONResponse({
+                "status": "cached",
+                "translation": translations[index]
+            })
+    else:
+        # Initialize empty translations array
+        translations = [None] * len(blocks)
+    
+    # Translate the paragraph
+    try:
+        translated = await _translate_single_async(blocks[index], config, tlang)
+        translations[index] = translated
+        
+        # Persist immediately
+        write_cached_translation(book_id, chapter_index, tlang, model, source_hash, translations)
+        
+        return JSONResponse({
+            "status": "ok",
+            "translation": translated
+        })
+    except Exception as e:
+        return JSONResponse({
+            "status": "error",
+            "message": str(e)
+        })
 
 
 async def _stream_translations(book_id: str, chapter_index: int, tlang: str) -> AsyncGenerator[str, None]:
