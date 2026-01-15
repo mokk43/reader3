@@ -9,6 +9,7 @@ import json
 import os
 import re
 import sys
+import time
 from typing import List, Dict, Any
 from urllib.request import Request, urlopen
 from urllib.error import URLError, HTTPError
@@ -222,50 +223,24 @@ def translate_blocks(blocks: List[str], backend: str, config: Dict[str, Any]) ->
 
 def batch_translate(blocks: List[str], backend: str, config: Dict[str, Any]) -> List[str]:
     """
-    Translate blocks in batches based on max_batch_chars.
+    Translate blocks one-by-one (single request per block).
     Returns translated blocks in the same order.
     """
     if not blocks:
         return []
 
-    max_chars = config["max_batch_chars"]
     results = []
-    batch = []
-    batch_chars = 0
-
-    def translate_batch_with_fallback(batch: List[str]) -> List[str]:
-        translated = translate_blocks(batch, backend, config)
-        if len(translated) == len(batch):
-            return translated
-
-        print(
-            f"  [WARN] Translation count mismatch: expected {len(batch)}, got {len(translated)}; "
-            "falling back to per-block translation"
-        )
-        fallback_results = []
-        for single in batch:
-            single_translated = translate_blocks([single], backend, config)
-            if len(single_translated) == 1:
-                fallback_results.append(single_translated[0])
-            else:
-                print("  [WARN] Single-block translation mismatch; using original text")
-                fallback_results.append(single)
-        return fallback_results
-
-    for block in blocks:
-        block_len = len(block)
-        # If adding this block exceeds limit, process current batch first
-        if batch and batch_chars + block_len > max_chars:
-            results.extend(translate_batch_with_fallback(batch))
-            batch = []
-            batch_chars = 0
-
-        batch.append(block)
-        batch_chars += block_len
-
-    # Process remaining batch
-    if batch:
-        results.extend(translate_batch_with_fallback(batch))
+    total = len(blocks)
+    for idx, block in enumerate(blocks, start=1):
+        print(f"    [Paragraph {idx}/{total}] Translating...")
+        translated = translate_blocks([block], backend, config)
+        if len(translated) == 1:
+            results.append(translated[0])
+        else:
+            print("  [WARN] Single-block translation mismatch; using original text")
+            results.append(block)
+        if idx % 10 == 0 and idx < total:
+            time.sleep(1)
 
     return results
 
@@ -350,7 +325,8 @@ def translate_html_content(html: str, mode: str, backend: str, config: Dict[str,
         )
 
     if not element_infos:
-        return str(soup)
+        # No translatable content; return original HTML to preserve SVG/XML attributes
+        return html
 
     # Translate all blocks
     blocks = [info["block"] for info in element_infos]
