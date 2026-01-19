@@ -1,6 +1,6 @@
 {
   "ollama_url": "http://localhost:11434",
-  "ollama_model": "SimonPu/Hunyuan-MT-Chimera-7B:Q8",
-  "default_target_language": "zh",
-  "prompt_template": "Translate the following text blocks into natural, idiomatic Chinese text.\n\nIMPORTANT INSTRUCTIONS:\n- Return ONLY a valid JSON array of translated strings\n- The array must have exactly the same number of elements as the input\n- Preserve paragraph structure and formatting\n- Do not add explanations or notes\n\nInput blocks:\n{{BLOCKS_JSON}}\n\nOutput (JSON array of translated strings):"
+  "ollama_model": "translategemma",
+  "default_target_language": "zh-Hans",
+  "prompt_template": "You are a professional English to Chinese (zh-Hans) translator. Your goal is to accurately convey the meaning and nuances of the original English text while adhering to Chinese grammar, vocabulary, and cultural sensitivities.\nProduce only the Chinese translation, without any additional explanations or commentary. Please translate the following English text into Chinese:"
 }
